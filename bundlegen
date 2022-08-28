@@ -6,6 +6,7 @@ from remotezip import RemoteZip
 from tempfile import TemporaryDirectory
 import bsdiff4
 import json
+import logging
 import os
 import platform
 import plistlib
@@ -15,6 +16,13 @@ import subprocess
 import sys
 import time
 
+logger = logging.getLogger('bundlegen')
+
+
+def bsdiff4_file_diff(src_path, dst_path, patch_path):
+    logger.debug('bsdiff4_file_diff: src_path = %s, dst_path = %s, patch_path = %s', src_path, dst_path, patch_path)
+    return bsdiff4.file_diff(src_path, dst_path, patch_path)
+
 
 def check_bin(binary):
     if shutil.which(binary) is None:
@@ -22,6 +30,7 @@ def check_bin(binary):
 
 
 def create_im4p(file, output, tag=None, patch=None):
+    logger.debug('create_im4p: file = %s, output = %s, tag = %s, patch = %s', file, output, tag, patch)
     args = [
         'img4',
         '-i',
@@ -39,12 +48,14 @@ def create_im4p(file, output, tag=None, patch=None):
         args.append('-P')
         args.append(patch)
 
+    logger.debug('create_im4p: running "%s"', ' '.join(args))
     img4 = subprocess.run(args, stdout=subprocess.DEVNULL)
     if img4.returncode != 0:
         sys.exit(f"[ERROR] Packing '{file}' into im4p container failed. Exiting.")
 
 
 def decrypt(file, output, kbag=None):
+    logger.debug('decrypt: file = %s, output = %s, kbag = %s', file, output, kbag)
     args = [
         'img4',
         '-i',
@@ -57,6 +68,7 @@ def decrypt(file, output, kbag=None):
         args.append('-k')
         args.append(kbag)
 
+    logger.debug('decrypt: running "%s"', ' '.join(args))
     decrypt = subprocess.run(args, stdout=subprocess.DEVNULL)
     if decrypt.returncode != 0:
         sys.exit(f"[ERROR] Decrypting '{file}' failed. Exiting.")
@@ -128,6 +140,7 @@ def mount_rdsk(rdsk, mountpoint):
         mountpoint
     )
 
+    logger.debug('mount_rdsk: running "%s"', ' '.join(args))
     mount = subprocess.run(args, stdout=subprocess.DEVNULL)
     if mount.returncode != 0:
         sys.exit(f"[ERROR] Mounting '{rdsk}' to '{mountpoint}' failed. Exiting.")
@@ -154,18 +167,21 @@ def parse_keys(page):
 
 
 def patch_bootchain(file, output):
+    logger.debug('patch_bootchain: file = %s, output = %s', file, output)
     args = (
         'kairos',
         file,
         output
     )
 
+    logger.debug('patch_bootchain: running "%s"', ' '.join(args))
     patch = subprocess.run(args, stdout=subprocess.DEVNULL)
     if patch.returncode != 0:
         sys.exit(f'[ERROR] Patching {file} failed. Exiting.')
 
 
 def patch_kernel(file, output):
+    logger.debug('patch_kernel: file = %s, output = %s', file, output)
     args = (
         'Kernel64Patcher',
         file,
@@ -173,18 +189,21 @@ def patch_kernel(file, output):
         '-a'
     )
 
+    logger.debug('patch_kernel: running "%s"', ' '.join(args))
     patch = subprocess.run(args, stdout=subprocess.DEVNULL)
     if patch.returncode != 0:
         sys.exit('[ERROR] Patching kernel failed. Exiting.')
 
 
 def patch_asr(file, output):
+    logger.debug('patch_asr: file = %s, output = %s', file, output)
     args = (
         'asr64_patcher',
         file,
         output
     )
 
+    logger.debug('patch_asr: running "%s"', ' '.join(args))
     patch = subprocess.run(args, stdout=subprocess.DEVNULL)
     if patch.returncode != 0:
         sys.exit(f"[ERROR] Patching '{file}' failed. Exiting.")
@@ -206,6 +225,7 @@ def patch_asr(file, output):
 
 def partialzip_extract(url, file, path):
     try:
+        logger.debug('partialzip_extract: url = %s, file = %s, path = %s', url, file, path)
         with RemoteZip(url) as f:
             f.extract(file, path)
     except:
@@ -214,6 +234,7 @@ def partialzip_extract(url, file, path):
 
 def partialzip_read(url, file):
     try:
+        logger.debug('partialzip_read: url = %s, file = %s', url, file)
         with RemoteZip(url) as f:
             return f.read(file)
     except:
@@ -221,6 +242,7 @@ def partialzip_read(url, file):
 
 
 def resize_rdsk(rdsk):
+    logger.debug('resize_rdsk: rdsk = %s', rdsk)
     new_size = round(os.path.getsize(rdsk) / float(1 << 20)) + 1
     args = (
         'hdiutil',
@@ -230,18 +252,21 @@ def resize_rdsk(rdsk):
         rdsk
     )
 
+    logger.debug('resize_rdsk: running "%s"', ' '.join(args))
     resize = subprocess.run(args, stdout=subprocess.DEVNULL)
     if resize.returncode != 0:
         sys.exit(f'[ERROR] Resizing ramdisk failed. Exiting.')
 
 
 def unmount_rdsk(mountpoint):
+    logger.debug('unmount_rdsk: mountpoint = %s', mountpoint)
     args = (
         'hdiutil',
         'detach',
         mountpoint
     )
 
+    logger.debug('unmount_rdsk: running "%s"', ' '.join(args))
     unmount = subprocess.run(args, stdout=subprocess.DEVNULL)
     if unmount.returncode != 0:
         sys.exit(f"[ERROR] Unmounting ramdisk at '{mountpoint}' failed. Exiting.")
@@ -251,6 +276,7 @@ def main():
     parser = ArgumentParser(description='Inferius Bundle Generator', usage="bundlegen -d 'Identifier' -i 'iOS version'")
     parser.add_argument('-d', '--device', help='Device identifier', nargs=1)
     parser.add_argument('-i', '--version', help='iOS version', nargs=1)
+    parser.add_argument('--debug', help='Debug', action='store_true')
     args = parser.parse_args()
 
     if platform.system() != 'Darwin':
@@ -258,6 +284,9 @@ def main():
 
     if not args.device or not args.version:
         sys.exit(parser.print_help(sys.stderr))
+
+    if args.debug:
+        logging.basicConfig(level=logging.DEBUG)
 
     check_bin('asr64_patcher')
     check_bin('img4')
@@ -283,6 +312,7 @@ def main():
         sys.exit(f"[ERROR] iOS {version} is not supported at this time for firmware bundle creation. Exiting.")
 
     with TemporaryDirectory() as tmpdir:
+        logger.debug('using tmpdir = %s', tmpdir)
         firm = get_firm([firm for firm in ipsw_api['firmwares'] if firm['version'] == version])
         bundle_name = '_'.join((identifier, version, firm['buildid']))
         bundle = f'{tmpdir}/{bundle_name}'
@@ -318,7 +348,7 @@ def main():
             patch_bootchain(f"{file['path']}.raw", f"{file['path']}.pwn")
             create_im4p(f"{file['path']}.pwn", f"{file['path']}.im4p.pwn", component.lower())
 
-            bsdiff4.file_diff(file['path'], f"{file['path']}.im4p.pwn",
+            bsdiff4_file_diff(file['path'], f"{file['path']}.im4p.pwn",
                               f"{bundle}/{file['name'].rsplit('.', 1)[0]}.patch")
 
         print('[3] Patching kernel...')
@@ -335,7 +365,7 @@ def main():
         diff_kernel(f"{kernel['path']}.raw", f"{kernel['path']}.pwn", f"{kernel['path']}.diff")
         create_im4p(kernel['path'], f"{kernel['path']}.im4p.pwn", patch=f"{kernel['path']}.diff")
 
-        bsdiff4.file_diff(kernel['path'], f"{kernel['path']}.im4p.pwn", f"{bundle}/{kernel['name']}.patch")
+        bsdiff4_file_diff(kernel['path'], f"{kernel['path']}.im4p.pwn", f"{bundle}/{kernel['name']}.patch")
 
         print('[4] Patching ramdisk. This may take a while, please wait...')
         ramdisk = {
@@ -365,7 +395,7 @@ def main():
 
         unmount_rdsk(f'{tmpdir}/ramdisk')
         create_im4p(f"{ramdisk['path']}_rdsk.dmg", f"{ramdisk['path']}.im4p", 'rdsk')
-        bsdiff4.file_diff(ramdisk['path'], f"{ramdisk['path']}.im4p", f"{bundle}/{ramdisk['name'][:-4]}.asr.patch")
+        bsdiff4_file_diff(ramdisk['path'], f"{ramdisk['path']}.im4p", f"{bundle}/{ramdisk['name'][:-4]}.asr.patch")
 
         print('[5] Making Firmware Bundle...')
         info = {
