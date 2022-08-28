@@ -5,3 +5,4 @@ IPSW/
 
 .DS_Store
 futurerestore_error.log
+venv/

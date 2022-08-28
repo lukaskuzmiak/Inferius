@@ -20,6 +20,7 @@ def check_bin(binary):
     if shutil.which(binary) is None:
         sys.exit(f"[ERROR] '{binary}' was not found on your system. Exiting.")
 
+
 def create_im4p(file, output, tag=None, patch=None):
     args = [
         'img4',
@@ -42,6 +43,7 @@ def create_im4p(file, output, tag=None, patch=None):
     if img4.returncode != 0:
         sys.exit(f"[ERROR] Packing '{file}' into im4p container failed. Exiting.")
 
+
 def decrypt(file, output, kbag=None):
     args = [
         'img4',
@@ -58,6 +60,7 @@ def decrypt(file, output, kbag=None):
     decrypt = subprocess.run(args, stdout=subprocess.DEVNULL)
     if decrypt.returncode != 0:
         sys.exit(f"[ERROR] Decrypting '{file}' failed. Exiting.")
+
 
 def diff_kernel(original, patched, output):
     with open(original, 'rb') as f:
@@ -83,11 +86,13 @@ def diff_kernel(original, patched, output):
         for line in diff:
             f.write(f"{' '.join(line)}\n")
 
+
 def get_board(boards):
     if len(boards) == 1:
         return boards[0]
-    
-    print('NOTE: There are multiple boardconfigs for your device! Please choose the correct boardconfig for your device:')
+
+    print(
+        'NOTE: There are multiple boardconfigs for your device! Please choose the correct boardconfig for your device:')
     for board in range(len(boards)):
         print(f"  {board + 1}: {boards[board]['boardconfig']}")
 
@@ -97,11 +102,13 @@ def get_board(boards):
     except:
         sys.exit('[ERROR] Invalid input given. Exiting.')
 
+
 def get_firm(firms):
     if len(firms) == 1:
         return firms[0]
-    
-    print(f"NOTE: There are multiple builds for iOS {firms[0]['version']}! Please choose the version you wish to make a Firmware Bundle for:")
+
+    print(
+        f"NOTE: There are multiple builds for iOS {firms[0]['version']}! Please choose the version you wish to make a Firmware Bundle for:")
     for firm in range(len(firms)):
         print(f"  {firm + 1}: {firms[firm]['buildid']}")
 
@@ -110,6 +117,7 @@ def get_firm(firms):
         return firms[int(firm) - 1]
     except:
         sys.exit('[ERROR] Invalid input given. Exiting.')
+
 
 def mount_rdsk(rdsk, mountpoint):
     args = (
@@ -123,6 +131,7 @@ def mount_rdsk(rdsk, mountpoint):
     mount = subprocess.run(args, stdout=subprocess.DEVNULL)
     if mount.returncode != 0:
         sys.exit(f"[ERROR] Mounting '{rdsk}' to '{mountpoint}' failed. Exiting.")
+
 
 def parse_keys(page):
     data = page.replace(' ', '').replace('|', '').splitlines()
@@ -143,6 +152,7 @@ def parse_keys(page):
 
     return wikikeys
 
+
 def patch_bootchain(file, output):
     args = (
         'kairos',
@@ -153,6 +163,7 @@ def patch_bootchain(file, output):
     patch = subprocess.run(args, stdout=subprocess.DEVNULL)
     if patch.returncode != 0:
         sys.exit(f'[ERROR] Patching {file} failed. Exiting.')
+
 
 def patch_kernel(file, output):
     args = (
@@ -165,6 +176,7 @@ def patch_kernel(file, output):
     patch = subprocess.run(args, stdout=subprocess.DEVNULL)
     if patch.returncode != 0:
         sys.exit('[ERROR] Patching kernel failed. Exiting.')
+
 
 def patch_asr(file, output):
     args = (
@@ -191,12 +203,14 @@ def patch_asr(file, output):
     if resign.returncode != 0:
         sys.exit(f'[ERROR] Resigning {output} failed. Exiting.')
 
+
 def partialzip_extract(url, file, path):
     try:
         with RemoteZip(url) as f:
             f.extract(file, path)
     except:
         sys.exit(f"[ERROR] Failed to extract '{file}'. Exiting.")
+
 
 def partialzip_read(url, file):
     try:
@@ -205,8 +219,9 @@ def partialzip_read(url, file):
     except:
         sys.exit(f"[ERROR] Failed to read '{file}'. Exiting.")
 
+
 def resize_rdsk(rdsk):
-    new_size = round(os.path.getsize(rdsk) / float(1<<20)) + 1
+    new_size = round(os.path.getsize(rdsk) / float(1 << 20)) + 1
     args = (
         'hdiutil',
         'resize',
@@ -218,7 +233,8 @@ def resize_rdsk(rdsk):
     resize = subprocess.run(args, stdout=subprocess.DEVNULL)
     if resize.returncode != 0:
         sys.exit(f'[ERROR] Resizing ramdisk failed. Exiting.')
-    
+
+
 def unmount_rdsk(mountpoint):
     args = (
         'hdiutil',
@@ -229,6 +245,7 @@ def unmount_rdsk(mountpoint):
     unmount = subprocess.run(args, stdout=subprocess.DEVNULL)
     if unmount.returncode != 0:
         sys.exit(f"[ERROR] Unmounting ramdisk at '{mountpoint}' failed. Exiting.")
+
 
 def main():
     parser = ArgumentParser(description='Inferius Bundle Generator', usage="bundlegen -d 'Identifier' -i 'iOS version'")
@@ -274,7 +291,8 @@ def main():
         print(f"Creating Firmware Bundle for {identifier}, iOS {version}")
         bm = plistlib.loads(partialzip_read(firm['url'], 'BuildManifest.plist'))
         boardconfig = get_board(ipsw_api['boards'])['boardconfig']
-        identity = next(identity for identity in bm['BuildIdentities'] if identity['Info']['DeviceClass'].lower() == boardconfig.lower())
+        identity = next(identity for identity in bm['BuildIdentities'] if
+                        identity['Info']['DeviceClass'].lower() == boardconfig.lower())
 
         print('[1] Grabbing decryption keys...')
         keypage_title = f"{identity['Info']['BuildTrain']}_{firm['buildid']}_({identifier})"
@@ -295,11 +313,13 @@ def main():
 
             partialzip_extract(firm['url'], file['ipsw_path'], tmpdir)
 
-            decrypt(file['path'], f"{file['path']}.raw", f"{keys[f'{component.lower()}iv']}{keys[f'{component.lower()}key']}")
+            decrypt(file['path'], f"{file['path']}.raw",
+                    f"{keys[f'{component.lower()}iv']}{keys[f'{component.lower()}key']}")
             patch_bootchain(f"{file['path']}.raw", f"{file['path']}.pwn")
             create_im4p(f"{file['path']}.pwn", f"{file['path']}.im4p.pwn", component.lower())
 
-            bsdiff4.file_diff(file['path'], f"{file['path']}.im4p.pwn", f"{bundle}/{file['name'].rsplit('.', 1)[0]}.patch") 
+            bsdiff4.file_diff(file['path'], f"{file['path']}.im4p.pwn",
+                              f"{bundle}/{file['name'].rsplit('.', 1)[0]}.patch")
 
         print('[3] Patching kernel...')
         kernel = {
@@ -389,6 +409,7 @@ def main():
         os.rename(f'{bundle_path}.zip', bundle_path)
 
     print(f"Finished creating Firmware Bundle for {identifier}, iOS {version}: '{bundle_path}'.")
+
 
 if __name__ == '__main__':
     main()
