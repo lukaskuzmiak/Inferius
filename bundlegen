@@ -75,28 +75,24 @@ def decrypt(file, output, kbag=None):
 
 
 def diff_kernel(original, patched, output):
+    logger.debug('diff_kernel: original = %s, patched = %s, output = %s', original, patched, output)
     with open(original, 'rb') as f:
         original = f.read()
 
     with open(patched, 'rb') as f:
         patched = f.read()
 
-    diff = list()
     start_time = time.time()
-    for i in range(len(original)):
-        if round(time.time() - start_time) > 60:
-            sys.exit("[ERROR] Failed to generate img4 patchfile for kernel. Exiting.")
-
-        originalByte = original[i]
-        patchedByte = patched[i]
-
-        if originalByte != patchedByte:
-            diff_info = (str(hex(i)), str(hex(originalByte)), str(hex(patchedByte)))
-            diff.append(diff_info)
-
     with open(output, 'w') as f:
-        for line in diff:
-            f.write(f"{' '.join(line)}\n")
+        for i in range(len(original)):
+            if round(time.time() - start_time) > 60:
+                sys.exit("[ERROR] Failed to generate img4 patchfile for kernel. Exiting.")
+
+            originalByte = original[i]
+            patchedByte = patched[i]
+
+            if originalByte != patchedByte:
+                f.write(f"{hex(i)} {hex(originalByte)} {hex(patchedByte)}\n")
 
 
 def get_board(boards):
