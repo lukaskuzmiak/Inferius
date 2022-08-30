@@ -1,3 +1,4 @@
+import logging
 import shutil
 import subprocess
 import sys
@@ -5,10 +6,12 @@ import sys
 
 class Checks:
     def __init__(self):
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.check_bin('futurerestore')
         self.check_bin('tsschecker')
         self.check_bin('irecovery')
         self.check_bin('img4tool')
+        self.logger.debug('Checks passed')
 
     def check_bin(self, binary):
         if shutil.which(binary) is None:

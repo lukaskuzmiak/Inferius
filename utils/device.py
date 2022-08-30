@@ -1,4 +1,5 @@
 import glob
+import logging
 import os
 import subprocess
 import sys
@@ -8,18 +9,25 @@ import usb, usb.backend.libusb1
 class Device:
     def __init__(self, identifier):
         self.device = identifier
+        self.logger = logging.getLogger(self.__class__.__name__)
         self.baseband = self.check_baseband()
+        self.logger.debug('check_baseband() = %s', self.baseband)
         self.backend = self.get_backend()
+        self.logger.debug('get_backend() = %s', self.backend)
         self.platform = self.fetch_platform()
+        self.logger.debug('fetch_platform() = %s', self.platform)
         self.board = self.fetch_boardconfig()
+        self.logger.debug('fetch_boardconfig() = %s', self.board)
         self.apnonce = self.fetch_apnonce()
+        self.logger.debug('fetch_apnonce() = %s', self.apnonce)
         self.ecid = self.fetch_ecid()
+        self.logger.debug('fetch_ecid() = %s', self.ecid)
 
     def check_baseband(self):
         if self.device.startswith('iPhone'):
             return True
 
-        return self.device in ( # All (current) 64-bit cellular iPads vulerable to checkm8.
+        return self.device in (  # All (current) 64-bit cellular iPads vulerable to checkm8.
             'iPad4,2',
             'iPad4,3',
             'iPad4,5',
@@ -41,7 +49,7 @@ class Device:
             'iPad11,2',
             'iPad11,4',
             'iPad13,2',
-            )
+        )
 
     def check_pwndfu(self):
         device = usb.core.find(idVendor=0x5AC, idProduct=0x1227, backend=self.backend)
@@ -56,31 +64,35 @@ class Device:
         line = next(l for l in irecv.splitlines() if 'NONC:' in l)
         return line.split(' ')[1]
 
-    def get_backend(self): # Attempt to find a libusb 1.0 library to use as pyusb's backend, exit if one isn't found.
-        directories = ('/usr/lib', '/opt/procursus/lib', '/usr/local/lib') # Common library directories to search
+    def get_backend(self):  # Attempt to find a libusb 1.0 library to use as pyusb's backend, exit if one isn't found.
+        # TODO: fix the glob search that leads into a memory kill due to OOM
+        return usb.backend.libusb1.get_backend(find_library=lambda x: '/usr/lib/x86_64-linux-gnu/libusb-1.0.so')
 
-        libusb1 = None
-        for libdir in directories:
-            for file in glob.glob(f'{libdir}/**', recursive=True):
-                if os.path.isdir(file) or (not any(ext in file for ext in ('so', 'dylib'))):
-                    continue
-
-                if 'libusb-1.0' in file:
-                    libusb1 = file
-                    break
-
-            else:
-                continue
-
-            break
-
-        if libusb1 is None:
-            sys.exit('[ERROR] libusb is not installed. Install libusb. Exiting.')
-
-        return usb.backend.libusb1.get_backend(find_library=lambda x:libusb1)
+    #     directories = ('/usr/lib', '/opt/procursus/lib', '/usr/local/lib')  # Common library directories to search
+    #
+    #     libusb1 = None
+    #     for libdir in directories:
+    #         for file in glob.glob(f'{libdir}/**', recursive=True):
+    #             if os.path.isdir(file) or (not any(ext in file for ext in ('so', 'dylib'))):
+    #                 continue
+    #
+    #             if 'libusb-1.0' in file:
+    #                 libusb1 = file
+    #                 break
+    #
+    #         else:
+    #             continue
+    #
+    #         break
+    #
+    #     if libusb1 is None:
+    #         sys.exit('[ERROR] libusb is not installed. Install libusb. Exiting.')
+    #
+    #     return usb.backend.libusb1.get_backend(find_library=lambda x: libusb1)
 
     def fetch_boardconfig(self):
-        irecv = subprocess.run(('irecovery', '-qv'), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, universal_newlines=True).stderr
+        irecv = subprocess.run(('irecovery', '-qv'), stdout=subprocess.DEVNULL, stderr=subprocess.PIPE,
+                               universal_newlines=True).stderr
         line = next(l for l in irecv.splitlines() if 'Connected to' in l)
         return line.split(', ')[1].replace('model ', '')
 
